@@ -1,25 +1,43 @@
 #!/usr/bin/python3
-''' Test request to parse API's
-'''
-import csv
+"""
+Exports data of all employees' TODO lists to a JSON file.
+Format: { "USER_ID": [ {"username": "USERNAME", "task": "TASK_TITLE",
+"completed": TASK_COMPLETED_STATUS}, ...]}
+"""
+
 import json
 import requests
-import sys
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1].isdigit():
-        api_endpoint = "https://jsonplaceholder.typicode.com"
-        user_id = sys.argv[1]
-        user_data = requests.get(api_endpoint + "/users/" + user_id).json()
-        username = user_data.get('username')
-        todo_data = \
-            requests.get(api_endpoint + "/users/" + user_id + "/todos").\
-            json()
-        with open("{}.json".format(user_id), 'w') as json_file:
-            tasks = []
-            for task in todo_data:
-                tasks.append({'task': task['title'],
-                              'completed': task['completed'],
-                              'username': username})
-            data = {"{}".format(user_id): tasks}
-            json.dump(data, json_file)
+    base_url = "https://jsonplaceholder.typicode.com"
+    users_url = f"{base_url}/users"
+    todos_url = f"{base_url}/todos"
+
+    # Fetch all users
+    users_response = requests.get(users_url)
+    users = users_response.json()
+
+    # fetch all todos
+    todos_response = requests.get(todos_url)
+    todos = todos_response.json()
+
+    # Build a dictionary {user_id: [tasks]}
+    all_data = {}
+
+    for user in users:
+        user_id = user.get("id")
+        username = user.get("username")
+        # Filter tasks for this user
+        user_tasks = [
+            {
+                "username": username,
+                "task": task.get("title"),
+                "completed": task.get("completed")
+            }
+            for task in todos if task.get("userId") == user_id
+        ]
+        all_data[str(user_id)] = user_tasks
+
+    # Save to JSON file
+    with open("todo_all_employees.json", "w") as jsonfile:
+        json.dump(all_data, jsonfile)
