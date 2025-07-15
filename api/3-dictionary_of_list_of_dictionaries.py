@@ -1,43 +1,52 @@
 #!/usr/bin/python3
 """
-Exports data of all employees' TODO lists to a JSON file.
-Format: { "USER_ID": [ {"username": "USERNAME", "task": "TASK_TITLE",
-"completed": TASK_COMPLETED_STATUS}, ...]}
+Exports data of an employee's TODO list to a JSON file.
+format: {"USER_ID": [{"task": ..., "completed": ..., "username": ...}, ...]}
 """
-
 import json
 import requests
+import sys
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python3 2-export_to_JSON.py <employee_id>")
+        sys.exit(1)
+
+    try:
+        employee_id = int(sys.argv[1])
+    except ValueError:
+        print("Employee ID must be an integer")
+        sys.exit(1)
+
     base_url = "https://jsonplaceholder.typicode.com"
-    users_url = f"{base_url}/users"
-    todos_url = f"{base_url}/todos"
+    user_url = "{}/users/{}".format(base_url, employee_id)
+    todos_url = "{}/todos?userId={}".format(base_url, employee_id)
 
-    # Fetch all users
-    users_response = requests.get(users_url)
-    users = users_response.json()
+    # Get user info
+    user_response = requests.get(user_url)
+    if user_response.status_code != 200:
+        print("Employee not found")
+        sys.exit(1)
 
-    # fetch all todos
+    user_data = user_response.json()
+    username = user_data.get("username")
+
+    # Get all tasks
     todos_response = requests.get(todos_url)
     todos = todos_response.json()
 
-    # Build a dictionary {user_id: [tasks]}
-    all_data = {}
+    # Prepare JSON Structure
+    task_list = []
+    for task in todos:
+        task_list.append({
+            "task": task.get("title"),
+            "completed": task.get("completed"),
+            "username": username
+        })
 
-    for user in users:
-        user_id = user.get("id")
-        username = user.get("username")
-        # Filter tasks for this user
-        user_tasks = [
-            {
-                "username": username,
-                "task": task.get("title"),
-                "completed": task.get("completed")
-            }
-            for task in todos if task.get("userId") == user_id
-        ]
-        all_data[str(user_id)] = user_tasks
+    data = {str(employee_id): task_list}
 
-    # Save to JSON file
-    with open("todo_all_employees.json", "w") as jsonfile:
-        json.dump(all_data, jsonfile)
+    # save to file
+    filename = "{}.json".format(employee_id)
+    with open(filename, "w") as jsonfile:
+        json.dump(data, jsonfile)
